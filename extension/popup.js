@@ -34,12 +34,23 @@ function getGoogleDocId(url) {
   return match ? match[1] : null;
 }
 
-// Fetch Google Doc as plain text using the export URL (uses browser cookies)
-async function fetchGoogleDocText(docId) {
-  const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
-  const res = await fetch(exportUrl, { credentials: "include" });
-  if (!res.ok) throw new Error(`Export failed: HTTP ${res.status}`);
-  return await res.text();
+// Fetch Google Doc as plain text by running fetch inside the tab (same-origin = cookies work)
+async function fetchGoogleDocText(tabId, docId) {
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: async (id) => {
+      try {
+        const res = await fetch(`https://docs.google.com/document/d/${id}/export?format=txt`);
+        if (!res.ok) return { error: `HTTP ${res.status}` };
+        return { text: await res.text() };
+      } catch (e) {
+        return { error: e.message };
+      }
+    },
+    args: [docId]
+  });
+  if (result.error) throw new Error(result.error);
+  return result.text;
 }
 
 // Generic page content extraction (for non-Google-Docs sites)
@@ -129,7 +140,7 @@ async function sendToWebhook() {
     if (docId) {
       // Google Docs: fetch clean plain text via export URL
       setStatus("Fetching doc…", "");
-      const docText = await fetchGoogleDocText(docId);
+      const docText = await fetchGoogleDocText(tab.id, docId);
       payload = {
         url: tab.url,
         title: tab.title || "Google Doc",

@@ -20,11 +20,22 @@ function getGoogleDocId(url) {
   return match ? match[1] : null;
 }
 
-async function fetchGoogleDocText(docId) {
-  const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
-  const res = await fetch(exportUrl, { credentials: "include" });
-  if (!res.ok) throw new Error(`Export failed: HTTP ${res.status}`);
-  return await res.text();
+async function fetchGoogleDocText(tabId, docId) {
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: async (id) => {
+      try {
+        const res = await fetch(`https://docs.google.com/document/d/${id}/export?format=txt`);
+        if (!res.ok) return { error: `HTTP ${res.status}` };
+        return { text: await res.text() };
+      } catch (e) {
+        return { error: e.message };
+      }
+    },
+    args: [docId]
+  });
+  if (result.error) throw new Error(result.error);
+  return result.text;
 }
 
 function extractPageContent() {
@@ -84,7 +95,7 @@ async function sendPayload(tabId, tabUrl, tabTitle, selectionOverride) {
   const docId = getGoogleDocId(tabUrl || "");
 
   if (docId) {
-    const docText = await fetchGoogleDocText(docId);
+    const docText = await fetchGoogleDocText(tabId, docId);
     payload = {
       url: tabUrl,
       title: tabTitle || "Google Doc",
@@ -141,7 +152,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     // For Google Docs, no need for content script shenanigans
     const docId = getGoogleDocId(tab.url || "");
     if (docId) {
-      const docText = await fetchGoogleDocText(docId);
+      const docText = await fetchGoogleDocText(tab.id, docId);
       await chrome.storage.local.set({
         capturedSelection: "",
         capturedUrl: tab.url || "",

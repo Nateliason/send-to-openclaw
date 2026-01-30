@@ -52,6 +52,8 @@ textarea {
   font-size: 13px;
   resize: vertical;
   background: #fff;
+  min-height: 60px;
+  max-height: 300px;
 }
 
 .actions {

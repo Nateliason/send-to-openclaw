@@ -169,30 +169,23 @@ async function sendToWebhook() {
       func: extractPageContent
     });
 
-    // Check for pre-captured selection (from keyboard shortcut)
-    let captured = await new Promise((resolve) => {
-      chrome.storage.local.get(["capturedSelection", "capturedUrl", "capturedTitle"], (data) => {
-        resolve(data);
-      });
-    });
-    // Clear it after reading
-    chrome.storage.local.remove(["capturedSelection", "capturedUrl", "capturedTitle"]);
+    // For sites like Google Docs (canvas rendering), use message box as primary input
+    const userMessage = messageEl.value.trim();
+    const isSpecialSite = result.content === "__NEEDS_SELECTION__";
 
-    const preSelection = (captured && captured.capturedSelection) || "";
-
-    // If the site needs special handling (e.g. Google Docs canvas rendering)
-    if (result.content === "__NEEDS_SELECTION__" && !result.selection && !preSelection) {
-      setStatus("Use ⌥⇧S (Option+Shift+S) with text selected, or copy (⌘C) and paste into the message box.", "error");
+    if (isSpecialSite && !result.selection && !userMessage) {
+      setStatus("⌘C in the doc, then ⌘V here and Send.", "error");
+      messageEl.focus();
       sendBtn.disabled = false;
       return;
     }
 
     payload = {
-      url: preSelection ? (captured.capturedUrl || result.url) : result.url,
-      title: preSelection ? (captured.capturedTitle || result.title) : result.title,
-      content: result.content === "__NEEDS_SELECTION__" ? "" : cleanWhitespace(result.content || ""),
-      selection: cleanWhitespace(preSelection || result.selection || ""),
-      message: messageEl.value.trim(),
+      url: result.url,
+      title: result.title,
+      content: isSpecialSite ? "" : cleanWhitespace(result.content || ""),
+      selection: cleanWhitespace(result.selection || ""),
+      message: userMessage,
       timestamp: new Date().toISOString()
     };
   } catch (error) {

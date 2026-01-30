@@ -1,89 +1,96 @@
-# Send to OpenClaw
+# Send to OpenClaw 🦞
 
-Send readable page content from Chrome to a OpenClaw instance using a simple webhook.
+A Chrome extension + local webhook server that lets you send any web page (or Google Doc) to your Clawdbot instance with one click.
 
 ## What it does
-- Grab the main readable text from the current page (or highlighted selection)
-- Add optional instructions from a popup message field
-- Send everything to a configurable webhook
-- Webhook server calls `clawdbot system event` to inject a formatted message into your session
 
-## Quick start
+- **Regular pages**: extracts the main readable text (or your highlighted selection)
+- **Google Docs**: fetches clean plain text via the export API — no auth setup needed, uses your existing Google login
+- **Optional message**: add instructions or context before sending
+- Formats everything and injects it into your Clawdbot session via `clawdbot system event`
 
-### 1) Run the webhook server
+## Setup
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/Nateliason/send-to-openclaw.git
+cd send-to-openclaw
+```
+
+### 2. Start the webhook server
+
 ```bash
 cd server
 npm install
-cp .env.example .env
+cp .env.example .env   # edit if you want to change port or add a token
 npm start
 ```
 
 The server listens on `http://localhost:3847/send-to-openclaw` by default.
 
-### 2) Load the Chrome extension
+**Environment variables** (set in `server/.env`):
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3847` | Server port |
+| `WEBHOOK_TOKEN` | _(empty)_ | Optional bearer token for auth |
+| `CLAWDBOT_WAKE_MODE` | `now` | `now` or `next-heartbeat` |
+
+### 3. Load the Chrome extension
+
 1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked** and select the `extension/` folder
-4. Click the extension’s **Options** link and set your Webhook URL
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked** → select the `extension/` folder
+4. Click the extension's **Options** and set:
+   - **Webhook URL**: `http://localhost:3847/send-to-openclaw`
+   - **Auth token**: your `WEBHOOK_TOKEN` if you set one
 
-## Configuration
+### 4. Run the server as a service (optional)
 
-### Extension options
-- **Webhook URL**: where the extension sends content
-- **Auth token**: optional bearer token
-
-Settings are stored in `chrome.storage.sync`.
-
-### Server environment variables
-Set these in `server/.env` or your environment:
-- `PORT` (default `3847`)
-- `WEBHOOK_TOKEN` (optional bearer token)
-- `OPENCLAW_WAKE_MODE` (`now` or `next-heartbeat`)
-
-`.env.example` is included for reference.
-
-## How to use
-- Click the toolbar icon to open the popup
-- Add an optional message and press **Send**
-- Highlight text first to send only the selection
-- Right-click the page or selection and choose **Send to OpenClaw**
-
-## OpenClaw formatting
-The webhook server formats a wake message like:
-```
-📎 Page sent from browser: {title}
-URL: {url}
-Time: {timestamp}
-
-{message if provided}
-
----
-{selection || content}
-```
-
-## Running as a service
-
-### systemd (Linux)
-Edit paths in `server/send-to-openclaw.service` and copy to:
-`/etc/systemd/system/send-to-openclaw.service`
-
+**macOS (launchd):**
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable send-to-openclaw
-sudo systemctl start send-to-openclaw
-```
-
-### launchd (macOS)
-Edit paths in `server/com.sendtoopenclaw.plist` and copy to:
-`~/Library/LaunchAgents/com.sendtoopenclaw.plist`
-
-```bash
+# Edit paths in the plist first
+cp server/com.sendtoopenclaw.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.sendtoopenclaw.plist
 ```
 
-## Notes
-- No URLs or tokens are hardcoded; everything is configured via the options page or env vars.
-- The extension uses an on-demand content script to avoid broad host permissions.
+**Linux (systemd):**
+```bash
+# Edit paths in the service file first
+sudo cp server/send-to-openclaw.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now send-to-openclaw
+```
+
+## Usage
+
+- **Click the toolbar icon** → optionally add a message → hit **Send**
+- **Right-click** any page or selection → **Send to OpenClaw**
+- **Keyboard shortcut**: `Alt+Shift+S` captures selection and opens the popup
+
+### Google Docs
+
+Just open a Google Doc and click Send. The extension detects `docs.google.com/document/` URLs and fetches the doc as plain text using your browser session — no Google API credentials or OAuth needed. Works with private docs you have access to.
+
+## What your Clawdbot receives
+
+```
+📎 Page sent from browser: Document Title
+URL: https://example.com/page
+Time: 2026-01-30T21:00:05.560Z
+
+Your optional message here
+
+---
+The page content or Google Doc text...
+```
+
+## Requirements
+
+- [Clawdbot](https://github.com/clawdbot/clawdbot) installed and running
+- Node.js 18+
+- Chrome or Chromium-based browser
 
 ## License
+
 MIT

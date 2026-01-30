@@ -1,0 +1,14 @@
+{
+  "name": "send-to-clawdbot-server",
+  "version": "1.0.0",
+  "description": "Webhook server for Send to Clawdbot extension.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

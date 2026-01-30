@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Send to Clawdbot Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Send to Clawdbot</h1>
+      <p class="subtitle">Configure where the extension sends content.</p>
+
+      <label for="webhookUrl">Webhook URL</label>
+      <input id="webhookUrl" type="url" placeholder="http://localhost:3847/send-to-clawdbot" />
+
+      <label for="authToken">Auth token (optional)</label>
+      <input id="authToken" type="password" placeholder="Bearer token" />
+
+      <div class="actions">
+        <button id="save">Save</button>
+        <span id="status" class="status" aria-live="polite"></span>
+      </div>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>

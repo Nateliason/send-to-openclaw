@@ -1,0 +1,13 @@
+[Unit]
+Description=Send to Clawdbot webhook server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/send-to-clawdbot/server
+EnvironmentFile=/opt/send-to-clawdbot/server/.env
+ExecStart=/usr/bin/node /opt/send-to-clawdbot/server/server.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

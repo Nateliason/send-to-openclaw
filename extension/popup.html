@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Send to Clawdbot</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="card">
+      <header>
+        <h1>Send to Clawdbot</h1>
+        <p class="subtitle">Share this page or selection.</p>
+      </header>
+
+      <label for="message">Message (optional)</label>
+      <textarea id="message" rows="4" placeholder="Add instructions or context..."></textarea>
+
+      <div class="actions">
+        <button id="send">Send</button>
+        <button id="open-options" class="secondary">Options</button>
+      </div>
+
+      <div id="status" class="status" aria-live="polite"></div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

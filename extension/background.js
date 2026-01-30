@@ -141,31 +141,42 @@ chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) return;
 
-  // Grab selection NOW while page still has focus
   try {
     const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: () => {
-        const sel = window.getSelection ? window.getSelection().toString().trim() : "";
-        return {
-          selection: sel,
-          url: location.href,
-          title: document.title || "Untitled"
-        };
+      func: async () => {
+        const url = location.href;
+        const title = document.title || "Untitled";
+
+        // First try native selection
+        let sel = window.getSelection ? window.getSelection().toString().trim() : "";
+
+        // If empty (e.g. Google Docs canvas), try copy-then-read-clipboard
+        if (!sel) {
+          try {
+            // Trigger copy — Google Docs handles this and puts text on clipboard
+            document.execCommand("copy");
+            // Small delay for clipboard to populate
+            await new Promise(r => setTimeout(r, 100));
+            // Read it back
+            sel = await navigator.clipboard.readText();
+          } catch (e) {
+            sel = "";
+          }
+        }
+
+        return { selection: sel || "", url, title };
       }
     });
 
-    // Store the captured selection for the popup to use
     await chrome.storage.local.set({
       capturedSelection: result.selection || "",
       capturedUrl: result.url || "",
       capturedTitle: result.title || ""
     });
 
-    // Open the popup
     chrome.action.openPopup();
   } catch (e) {
-    // Fallback: just open popup normally
     chrome.action.openPopup();
   }
 });

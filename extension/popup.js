@@ -10,14 +10,23 @@ function setStatus(message, kind) {
 
 function getSettings() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get(["webhookUrl", "authToken"], (data) => {
+    chrome.storage.sync.get(["webhookUrl", "authToken", "displayName"], (data) => {
       resolve({
         webhookUrl: data.webhookUrl || "",
-        authToken: data.authToken || ""
+        authToken: data.authToken || "",
+        displayName: data.displayName || "OpenClaw"
       });
     });
   });
 }
+
+// Load display name into heading on startup
+chrome.storage.sync.get(["displayName"], (data) => {
+  const name = data.displayName || "OpenClaw";
+  const heading = document.getElementById("popup-title");
+  if (heading) heading.textContent = `Send to ${name}`;
+  document.title = `Send to ${name}`;
+});
 
 async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -118,10 +127,12 @@ function extractPageContent() {
 async function sendToWebhook() {
   setStatus("", "");
   sendBtn.disabled = true;
+  sendBtn.classList.add("loading");
 
   const settings = await getSettings();
   if (!settings.webhookUrl) {
     setStatus("Set a webhook URL in Options first.", "error");
+    sendBtn.classList.remove("loading");
     sendBtn.disabled = false;
     return;
   }
@@ -129,6 +140,7 @@ async function sendToWebhook() {
   const tab = await getActiveTab();
   if (!tab || !tab.id) {
     setStatus("No active tab found.", "error");
+    sendBtn.classList.remove("loading");
     sendBtn.disabled = false;
     return;
   }
@@ -166,6 +178,7 @@ async function sendToWebhook() {
     }
   } catch (error) {
     setStatus(`Failed to read page: ${error.message}`, "error");
+    sendBtn.classList.remove("loading");
     sendBtn.disabled = false;
     return;
   }
@@ -184,11 +197,12 @@ async function sendToWebhook() {
       throw new Error(`HTTP ${res.status}`);
     }
 
-    setStatus("Sent to OpenClaw.", "ok");
+    setStatus(`Sent to ${settings.displayName}.`, "ok");
     messageEl.value = "";
   } catch (error) {
     setStatus("Failed to send. Check webhook URL/token.", "error");
   } finally {
+    sendBtn.classList.remove("loading");
     sendBtn.disabled = false;
   }
 }

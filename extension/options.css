@@ -5,8 +5,20 @@
   --card: #ffffff;
   --text: #1f1f1f;
   --muted: #6b6b6b;
-  --accent: #0f6c63;
+  --accent: #c0392b;
+  --accent-dark: #962d22;
+  --accent-light: #fdecea;
+  --accent-glow: rgba(192, 57, 43, 0.12);
   --border: #e0e0e0;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.1);
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --transition: 150ms ease;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
@@ -21,8 +33,42 @@ body {
   padding: 24px;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.header-row h1 {
+  margin: 0;
+}
+
+.header-row .subtitle {
+  margin: 2px 0 0;
 }
 
 h1 {
@@ -39,36 +85,71 @@ h1 {
 label {
   display: block;
   font-weight: 600;
-  font-size: 12px;
-  margin: 14px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 16px 0 6px;
+}
+
+label:first-of-type {
+  margin-top: 0;
 }
 
 input {
   width: 100%;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 button {
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 10px 16px;
+  font-size: 13px;
   font-weight: 600;
   background: var(--accent);
   color: white;
   cursor: pointer;
+  transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+button:hover {
+  background: var(--accent-dark);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+button:active {
+  transform: scale(0.98);
 }
 
 .status {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--accent-dark);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--transition), background var(--transition);
+}
+
+.status:not(:empty) {
+  background: var(--accent-light);
 }

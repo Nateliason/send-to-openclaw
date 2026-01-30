@@ -8,8 +8,16 @@
   </head>
   <body>
     <main class="card">
-      <h1>Send to OpenClaw</h1>
-      <p class="subtitle">Configure where the extension sends content.</p>
+      <div class="header-row">
+        <img src="icons/icon48.png" alt="" class="header-icon" />
+        <div>
+          <h1 id="options-title">Send to OpenClaw</h1>
+          <p class="subtitle">Configure where the extension sends content.</p>
+        </div>
+      </div>
+
+      <label for="displayName">Display Name</label>
+      <input id="displayName" type="text" placeholder="OpenClaw" />
 
       <label for="webhookUrl">Webhook URL</label>
       <input id="webhookUrl" type="url" placeholder="http://localhost:3847/send-to-openclaw" />

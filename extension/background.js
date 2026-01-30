@@ -6,10 +6,11 @@ function cleanWhitespace(text) {
 
 function getSettings() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get(["webhookUrl", "authToken"], (data) => {
+    chrome.storage.sync.get(["webhookUrl", "authToken", "displayName"], (data) => {
       resolve({
         webhookUrl: data.webhookUrl || "",
-        authToken: data.authToken || ""
+        authToken: data.authToken || "",
+        displayName: data.displayName || "OpenClaw"
       });
     });
   });
@@ -130,11 +131,21 @@ async function sendPayload(tabId, tabUrl, tabTitle, selectionOverride) {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: MENU_ID,
-    title: "Send to OpenClaw",
-    contexts: ["page", "selection"]
+  chrome.storage.sync.get(["displayName"], (data) => {
+    const name = data.displayName || "OpenClaw";
+    chrome.contextMenus.create({
+      id: MENU_ID,
+      title: `Send to ${name}`,
+      contexts: ["page", "selection"]
+    });
   });
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync" && changes.displayName) {
+    const name = changes.displayName.newValue || "OpenClaw";
+    chrome.contextMenus.update(MENU_ID, { title: `Send to ${name}` });
+  }
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {

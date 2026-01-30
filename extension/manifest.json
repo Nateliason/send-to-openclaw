@@ -3,7 +3,7 @@
   "name": "Send to OpenClaw",
   "version": "1.0.0",
   "description": "Send readable page content to a OpenClaw webhook.",
-  "permissions": ["activeTab", "storage", "contextMenus", "scripting"],
+  "permissions": ["activeTab", "storage", "contextMenus", "scripting", "clipboardRead"],
   "action": {
     "default_title": "Send to OpenClaw",
     "default_popup": "popup.html",

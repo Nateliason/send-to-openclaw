@@ -169,18 +169,26 @@ async function sendToWebhook() {
       func: extractPageContent
     });
 
-    // If the site needs manual selection (e.g. Google Docs canvas rendering)
-    if (result.content === "__NEEDS_SELECTION__" && !result.selection) {
-      setStatus("This page needs a selection first. Use ⌘A then try again.", "error");
-      sendBtn.disabled = false;
-      return;
+    // If the site needs clipboard (e.g. Google Docs canvas rendering)
+    let clipboardText = "";
+    if (result.content === "__NEEDS_SELECTION__") {
+      try {
+        clipboardText = await navigator.clipboard.readText();
+      } catch (e) {
+        // clipboard empty or denied
+      }
+      if (!clipboardText && !result.selection) {
+        setStatus("Copy text first (⌘C), then hit Send.", "error");
+        sendBtn.disabled = false;
+        return;
+      }
     }
 
     payload = {
       url: result.url,
       title: result.title,
       content: result.content === "__NEEDS_SELECTION__" ? "" : cleanWhitespace(result.content || ""),
-      selection: cleanWhitespace(result.selection || ""),
+      selection: cleanWhitespace(clipboardText || result.selection || ""),
       message: messageEl.value.trim(),
       timestamp: new Date().toISOString()
     };

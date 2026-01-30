@@ -15,36 +15,28 @@ function getSettings() {
   });
 }
 
+function getGoogleDocId(url) {
+  const match = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+async function fetchGoogleDocText(docId) {
+  const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
+  const res = await fetch(exportUrl, { credentials: "include" });
+  if (!res.ok) throw new Error(`Export failed: HTTP ${res.status}`);
+  return await res.text();
+}
+
 function extractPageContent() {
   const selection = window.getSelection ? window.getSelection().toString().trim() : "";
 
   function removeNoise(root) {
     const selectors = [
-      "script",
-      "style",
-      "noscript",
-      "nav",
-      "footer",
-      "header",
-      "aside",
-      "form",
-      "button",
-      "input",
-      "textarea",
-      "svg",
-      "canvas",
-      "iframe",
-      "[role='navigation']",
-      "[role='banner']",
-      "[role='contentinfo']",
-      "[aria-hidden='true']",
-      ".ad",
-      ".ads",
-      ".advert",
-      ".advertisement",
-      ".promo",
-      ".subscribe",
-      ".newsletter"
+      "script", "style", "noscript", "nav", "footer", "header", "aside",
+      "form", "button", "input", "textarea", "svg", "canvas", "iframe",
+      "[role='navigation']", "[role='banner']", "[role='contentinfo']",
+      "[aria-hidden='true']", ".ad", ".ads", ".advert", ".advertisement",
+      ".promo", ".subscribe", ".newsletter"
     ];
     selectors.forEach((selector) => {
       root.querySelectorAll(selector).forEach((node) => node.remove());
@@ -57,7 +49,6 @@ function extractPageContent() {
     );
     let bestText = "";
     let bestScore = 0;
-
     candidates.forEach((el) => {
       const text = el.innerText ? el.innerText.trim() : "";
       const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -67,11 +58,7 @@ function extractPageContent() {
         bestText = text;
       }
     });
-
-    if (bestText) {
-      return bestText;
-    }
-    return root.innerText || "";
+    return bestText || (root.innerText || "");
   }
 
   const clone = document.body ? document.body.cloneNode(true) : document.documentElement.cloneNode(true);
@@ -89,25 +76,37 @@ function extractPageContent() {
   };
 }
 
-async function sendPayload(tabId, selectionOverride) {
+async function sendPayload(tabId, tabUrl, tabTitle, selectionOverride) {
   const settings = await getSettings();
-  if (!settings.webhookUrl) {
-    return;
+  if (!settings.webhookUrl) return;
+
+  let payload;
+  const docId = getGoogleDocId(tabUrl || "");
+
+  if (docId) {
+    const docText = await fetchGoogleDocText(docId);
+    payload = {
+      url: tabUrl,
+      title: tabTitle || "Google Doc",
+      content: docText.trim(),
+      selection: "",
+      message: "",
+      timestamp: new Date().toISOString()
+    };
+  } else {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: extractPageContent
+    });
+    payload = {
+      url: result.url,
+      title: result.title,
+      content: cleanWhitespace(result.content || ""),
+      selection: cleanWhitespace(selectionOverride || result.selection || ""),
+      message: "",
+      timestamp: new Date().toISOString()
+    };
   }
-
-  const [{ result }] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: extractPageContent
-  });
-
-  const payload = {
-    url: result.url,
-    title: result.title,
-    content: cleanWhitespace(result.content || ""),
-    selection: cleanWhitespace(selectionOverride || result.selection || ""),
-    message: "",
-    timestamp: new Date().toISOString()
-  };
 
   await fetch(settings.webhookUrl, {
     method: "POST",
@@ -128,13 +127,10 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId !== MENU_ID || !tab || !tab.id) {
-    return;
-  }
-  sendPayload(tab.id, info.selectionText || "").catch(() => {});
+  if (info.menuItemId !== MENU_ID || !tab || !tab.id) return;
+  sendPayload(tab.id, tab.url, tab.title, info.selectionText || "").catch(() => {});
 });
 
-// Keyboard shortcut: capture selection while page has focus, then open popup
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "send-selection") return;
 
@@ -142,37 +138,33 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (!tab || !tab.id) return;
 
   try {
+    // For Google Docs, no need for content script shenanigans
+    const docId = getGoogleDocId(tab.url || "");
+    if (docId) {
+      const docText = await fetchGoogleDocText(docId);
+      await chrome.storage.local.set({
+        capturedSelection: "",
+        capturedUrl: tab.url || "",
+        capturedTitle: tab.title || "",
+        capturedDocContent: docText.trim()
+      });
+      chrome.action.openPopup();
+      return;
+    }
+
     const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: async () => {
-        const url = location.href;
-        const title = document.title || "Untitled";
-
-        // First try native selection
-        let sel = window.getSelection ? window.getSelection().toString().trim() : "";
-
-        // If empty (e.g. Google Docs canvas), try copy-then-read-clipboard
-        if (!sel) {
-          try {
-            // Trigger copy — Google Docs handles this and puts text on clipboard
-            document.execCommand("copy");
-            // Small delay for clipboard to populate
-            await new Promise(r => setTimeout(r, 100));
-            // Read it back
-            sel = await navigator.clipboard.readText();
-          } catch (e) {
-            sel = "";
-          }
-        }
-
-        return { selection: sel || "", url, title };
+      func: () => {
+        const sel = window.getSelection ? window.getSelection().toString().trim() : "";
+        return { selection: sel, url: location.href, title: document.title || "Untitled" };
       }
     });
 
     await chrome.storage.local.set({
       capturedSelection: result.selection || "",
       capturedUrl: result.url || "",
-      capturedTitle: result.title || ""
+      capturedTitle: result.title || "",
+      capturedDocContent: ""
     });
 
     chrome.action.openPopup();

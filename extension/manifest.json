@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Send to OpenClaw",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Send readable page content to a OpenClaw webhook.",
   "permissions": ["activeTab", "storage", "contextMenus", "scripting"],
+  "host_permissions": ["https://docs.google.com/*"],
   "commands": {
     "send-selection": {
       "suggested_key": {

@@ -28,39 +28,26 @@ function cleanWhitespace(text) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+// Extract Google Doc ID from URL
+function getGoogleDocId(url) {
+  const match = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+// Fetch Google Doc as plain text using the export URL (uses browser cookies)
+async function fetchGoogleDocText(docId) {
+  const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
+  const res = await fetch(exportUrl, { credentials: "include" });
+  if (!res.ok) throw new Error(`Export failed: HTTP ${res.status}`);
+  return await res.text();
+}
+
+// Generic page content extraction (for non-Google-Docs sites)
 function extractPageContent() {
   const selection = window.getSelection ? window.getSelection().toString().trim() : "";
 
-  // Special handling for tricky sites
   function trySiteSpecific() {
     const host = location.hostname;
-    const url = location.href;
-
-    // Google Docs — canvas-based rendering, DOM has no content
-    // Auto select-all and grab the selection
-    if (host === "docs.google.com" && url.includes("/document/")) {
-      // Try to get text via accessibility elements
-      const accessibilityContent = document.querySelector('[role="textbox"]');
-      if (accessibilityContent) {
-        const text = accessibilityContent.innerText || accessibilityContent.textContent;
-        if (text && text.trim().length > 10) return text.trim();
-      }
-      // Try contenteditable areas
-      const editables = document.querySelectorAll('[contenteditable="true"]');
-      for (const el of editables) {
-        const text = el.innerText || el.textContent || "";
-        if (text.trim().length > 10) return text.trim();
-      }
-      // Return special flag so popup can prompt user
-      return "__NEEDS_SELECTION__";
-    }
-
-    // Google Sheets
-    if (host === "docs.google.com" && url.includes("/spreadsheets/")) {
-      return "__NEEDS_SELECTION__";
-    }
-
-    // Granola, Notion, and other SPA special handling
     if (host === "notes.granola.ai" || host === "www.notion.so") {
       const main = document.querySelector("main, [role='main'], article");
       if (main) return main.innerText.trim();
@@ -70,31 +57,11 @@ function extractPageContent() {
 
   function removeNoise(root) {
     const selectors = [
-      "script",
-      "style",
-      "noscript",
-      "nav",
-      "footer",
-      "header",
-      "aside",
-      "form",
-      "button",
-      "input",
-      "textarea",
-      "svg",
-      "canvas",
-      "iframe",
-      "[role='navigation']",
-      "[role='banner']",
-      "[role='contentinfo']",
-      "[aria-hidden='true']",
-      ".ad",
-      ".ads",
-      ".advert",
-      ".advertisement",
-      ".promo",
-      ".subscribe",
-      ".newsletter"
+      "script", "style", "noscript", "nav", "footer", "header", "aside",
+      "form", "button", "input", "textarea", "svg", "canvas", "iframe",
+      "[role='navigation']", "[role='banner']", "[role='contentinfo']",
+      "[aria-hidden='true']", ".ad", ".ads", ".advert", ".advertisement",
+      ".promo", ".subscribe", ".newsletter"
     ];
     selectors.forEach((selector) => {
       root.querySelectorAll(selector).forEach((node) => node.remove());
@@ -107,7 +74,6 @@ function extractPageContent() {
     );
     let bestText = "";
     let bestScore = 0;
-
     candidates.forEach((el) => {
       const text = el.innerText ? el.innerText.trim() : "";
       const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -117,16 +83,10 @@ function extractPageContent() {
         bestText = text;
       }
     });
-
-    if (bestText) {
-      return bestText;
-    }
-    return root.innerText || "";
+    return bestText || (root.innerText || "");
   }
 
-  // Try special handlers first (Google Docs, Granola, Notion, etc.)
   let content = trySiteSpecific();
-
   if (!content) {
     const clone = document.body ? document.body.cloneNode(true) : document.documentElement.cloneNode(true);
     removeNoise(clone);
@@ -164,32 +124,37 @@ async function sendToWebhook() {
 
   let payload;
   try {
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: extractPageContent
-    });
+    const docId = getGoogleDocId(tab.url || "");
 
-    // For sites like Google Docs (canvas rendering), use message box as primary input
-    const userMessage = messageEl.value.trim();
-    const isSpecialSite = result.content === "__NEEDS_SELECTION__";
-
-    if (isSpecialSite && !result.selection && !userMessage) {
-      setStatus("⌘C in the doc, then ⌘V here and Send.", "error");
-      messageEl.focus();
-      sendBtn.disabled = false;
-      return;
+    if (docId) {
+      // Google Docs: fetch clean plain text via export URL
+      setStatus("Fetching doc…", "");
+      const docText = await fetchGoogleDocText(docId);
+      payload = {
+        url: tab.url,
+        title: tab.title || "Google Doc",
+        content: docText.trim(),
+        selection: "",
+        message: messageEl.value.trim(),
+        timestamp: new Date().toISOString()
+      };
+    } else {
+      // All other sites: use content script extraction
+      const [{ result }] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: extractPageContent
+      });
+      payload = {
+        url: result.url,
+        title: result.title,
+        content: cleanWhitespace(result.content || ""),
+        selection: cleanWhitespace(result.selection || ""),
+        message: messageEl.value.trim(),
+        timestamp: new Date().toISOString()
+      };
     }
-
-    payload = {
-      url: result.url,
-      title: result.title,
-      content: isSpecialSite ? "" : cleanWhitespace(result.content || ""),
-      selection: cleanWhitespace(result.selection || ""),
-      message: userMessage,
-      timestamp: new Date().toISOString()
-    };
   } catch (error) {
-    setStatus("Failed to read page content.", "error");
+    setStatus(`Failed to read page: ${error.message}`, "error");
     sendBtn.disabled = false;
     return;
   }

@@ -34,9 +34,9 @@ npm start
 Server listens on `http://localhost:3847/send-to-openclaw`.
 
 Environment variables (in `server/.env`):
-- `PORT` — default `3847`
-- `WEBHOOK_TOKEN` — optional bearer token
-- `CLAWDBOT_WAKE_MODE` — `now` (default) or `next-heartbeat`
+- `PORT` - default `3847`
+- `WEBHOOK_TOKEN` - optional bearer token
+- `CLAWDBOT_WAKE_MODE` - `now` (default) or `next-heartbeat`
 
 ### 2. Load the Chrome extension
 
@@ -66,6 +66,24 @@ sudo systemctl enable --now send-to-openclaw
 - Click toolbar icon, optionally add a message, hit Send
 - Right-click any page or selection: "Send to OpenClaw"
 - Keyboard shortcut: `Alt+Shift+S`
+
+## X/Twitter Follow-Up Workflows
+
+Send to OpenClaw captures the visible page or selected thread text. For
+account-scoped X/Twitter work that needs structured search, replies, follower
+export, user lookup, media workflows, DMs, monitors, webhooks, giveaway draws,
+or reviewed post and reply actions, use TweetClaw as a separate OpenClaw plugin
+after the browser share.
+
+```bash
+openclaw plugins install npm:@xquik/tweetclaw@1.6.31
+```
+
+Use the browser share as source evidence for the agent. Keep private values in
+TweetClaw plugin config or local environment variables, not in captured page
+text, optional messages, webhook logs, or Clawdbot transcripts. Require explicit
+operator approval before posting, replying, sending DMs, following, uploading
+media, changing monitors or webhooks, or running giveaway actions.
 
 ## What Clawdbot Receives
 
